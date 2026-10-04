@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recordatorio de Monitoreos Clínicos</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { -webkit-tap-highlight-color: transparent; }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen pb-12 font-sans antialiased">
+
+  <!-- Header -->
+  <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-50 px-4 py-3 shadow-md flex items-center justify-between">
+    <div class="flex items-center space-x-2">
+      <span class="text-2xl">🚨</span>
+      <h1 class="text-lg font-bold text-slate-100">AlertaClínica</h1>
+    </div>
+    <div class="flex items-center gap-2">
+      <button id="btn-permiso" onclick="solicitarPermisoNotificaciones()" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-3 py-1.5 rounded-full transition-colors shadow">
+        Activar Notificaciones
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-md mx-auto px-4 mt-4 space-y-6">
+
+    <!-- Formulario Nueva Alerta -->
+    <section class="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-lg space-y-4">
+      <h2 class="text-sm font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
+        <span>➕</span> Programar Control
+      </h2>
+
+      <!-- Presets Rápidos -->
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 mb-1.5">Plantillas Rápidas:</label>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <button type="button" onclick="aplicarPreset('Cama ', 'Glicemia Capilar', 60, 6)" class="bg-slate-700 hover:bg-slate-600 text-slate-200 py-2 px-2.5 rounded-lg text-left border border-slate-600 font-medium">
+            🩸 Glicemia (c/1h - 6h)
+          </button>
+          <button type="button" onclick="aplicarPreset('Cama ', 'Monitoreo Fetal (NST)', 30, 2)" class="bg-slate-700 hover:bg-slate-600 text-slate-200 py-2 px-2.5 rounded-lg text-left border border-slate-600 font-medium">
+            👶 NST Fetal (c/30m - 2h)
+          </button>
+          <button type="button" onclick="aplicarPreset('Cama ', 'Escala Glasgow / Neuro', 15, 2)" class="bg-slate-700 hover:bg-slate-600 text-slate-200 py-2 px-2.5 rounded-lg text-left border border-slate-600 font-medium">
+            🧠 Neuro / Glasgow (c/15m)
+          </button>
+          <button type="button" onclick="aplicarPreset('Cama ', 'Gases Arteriales (ABG)', 120, 4)" class="bg-slate-700 hover:bg-slate-600 text-slate-200 py-2 px-2.5 rounded-lg text-left border border-slate-600 font-medium">
+            🫁 Control ABG (c/2h - 4h)
+          </button>
+        </div>
+      </div>
+
+      <form id="form-alerta" onsubmit="guardarAlerta(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Paciente / Identificador</label>
+          <input type="text" id="paciente" required placeholder="Ej: Cama 12 - J.P." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Procedimiento / Indicación</label>
+          <input type="text" id="procedimiento" required placeholder="Ej: Glicemia capilar" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Frecuencia (min)</label>
+            <input type="number" id="frecuencia" min="1" required placeholder="30" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Duración total (hrs)</label>
+            <input type="number" id="duracion" min="0.5" step="0.5" required placeholder="4" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+          </div>
+        </div>
+
+        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 font-semibold text-white py-2.5 rounded-lg text-sm transition-colors shadow">
+          🚀 Iniciar Monitoreo
+        </button>
+      </form>
+    </section>
+
+    <!-- Lista de Monitoreos Activos -->
+    <section class="space-y-3">
+      <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+        <span>⏱️ Controles Activos</span>
+        <span id="contador-activos" class="text-xs bg-slate-800 border border-slate-700 px-2 py-0.5 rounded-full text-indigo-400 font-mono">0</span>
+      </h2>
+
+      <div id="lista-alertas" class="space-y-2">
+        <!-- Renderizado dinámico -->
+      </div>
+    </section>
+
+    <!-- Historial de Registros completados -->
+    <section class="space-y-3">
+      <div class="flex items-center justify-between">
+        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+          <span>📋 Historial de Registros</span>
+        </h2>
+        <button onclick="limpiarHistorial()" class="text-[11px] text-slate-500 hover:text-red-400 underline">
+          Limpiar
+        </button>
+      </div>
+
+      <div id="lista-historial" class="space-y-2 max-h-60 overflow-y-auto pr-1">
+        <!-- Renderizado dinámico del historial -->
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    let alertas = JSON.parse(localStorage.getItem('alertas_clinicas') || '[]');
+    let historial = JSON.parse(localStorage.getItem('historial_clinico') || '[]');
+
+    // Audio Context para generar el bip de la alarma
+    let audioCtx = null;
+
+    function initAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+
+    function reproducirSonidoAlarma() {
+      try {
+        initAudioContext();
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+
+        const ahora = audioCtx.currentTime;
+        // Crear 3 beeps consecutivos
+        [0, 0.25, 0.5].forEach(delay => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(880, ahora + delay); // Tono A5 (880 Hz)
+          
+          gain.gain.setValueAtTime(0.3, ahora + delay);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ahora + delay + 0.18);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+
+          osc.start(ahora + delay);
+          osc.stop(ahora + delay + 0.2);
+        });
+      } catch (e) {
+        console.error("Error al reproducir audio:", e);
+      }
+    }
+
+    // Manejo de Permisos para Notificaciones
+    function actualizarBotonPermiso() {
+      const btn = document.getElementById('btn-permiso');
+      if (!("Notification" in window)) {
+        btn.innerText = "Sin soporte push";
+        btn.classList.replace('bg-indigo-600', 'bg-red-800');
+        return;
+      }
+      if (Notification.permission === "granted") {
+        btn.innerText = "🔔 Notificaciones Activas";
+        btn.classList.replace('bg-indigo-600', 'bg-emerald-600');
+      } else if (Notification.permission === "denied") {
+        btn.innerText = "⚠️ Bloqueadas en el celular";
+        btn.classList.replace('bg-indigo-600', 'bg-red-600');
+      }
+    }
+
+    async function solicitarPermisoNotificaciones() {
+      initAudioContext();
+      if ("Notification" in window) {
+        const perm = await Notification.requestPermission();
+        actualizarBotonPermiso();
+        if (perm === "granted") {
+          new Notification("🚨 AlertaClínica", { body: "¡Notificaciones activadas con éxito!" });
+        }
+      }
+    }
+
+    // Aplicar Presets Rápidos
+    function aplicarPreset(paciente, procedimiento, freqMin, durHrs) {
+      document.getElementById('paciente').value = paciente;
+      document.getElementById('procedimiento').value = procedimiento;
+      document.getElementById('frecuencia').value = freqMin;
+      document.getElementById('duracion').value = durHrs;
+      document.getElementById('paciente').focus();
+    }
+
+    // Guardar Nueva Alerta
+    function guardarAlerta(e) {
+      e.preventDefault();
+      initAudioContext();
+
+      const paciente = document.getElementById('paciente').value.trim();
+      const procedimiento = document.getElementById('procedimiento').value.trim();
+      const frecuencia = parseInt(document.getElementById('frecuencia').value);
+      const duracion = parseFloat(document.getElementById('duracion').value);
+
+      const ahora = Date.now();
+      const fin = ahora + (duracion * 60 * 60 * 1000);
+      const siguiente = ahora + (frecuencia * 60 * 1000);
+
+      const nuevaAlerta = {
+        id: 'task_' + Date.now(),
+        paciente,
+        procedimiento,
+        frecuenciaMin: frecuencia,
+        finMs: fin,
+        siguienteMs: siguiente,
+        notificada: false
+      };
+
+      alertas.push(nuevaAlerta);
+      guardarYRenderizar();
+      document.getElementById('form-alerta').reset();
+    }
+
+    // Marcar Control como "Realizado" y Guardar en Historial
+    function marcarRealizado(id) {
+      initAudioContext();
+      const idx = alertas.findIndex(a => a.id === id);
+      if (idx !== -1) {
+        const alerta = alertas[idx];
+        const ahora = Date.now();
+
+        // Registrar entrada en el historial
+        const registroLog = {
+          id: 'log_' + Date.now(),
+          paciente: alerta.paciente,
+          procedimiento: alerta.procedimiento,
+          fechaHora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+          fechaDia: new Date().toLocaleDateString()
+        };
+        historial.unshift(registroLog);
+
+        const siguiente = ahora + (alerta.frecuenciaMin * 60 * 1000);
+
+        if (siguiente >= alerta.finMs) {
+          // Finalizó la duración programada
+          alertas.splice(idx, 1);
+        } else {
+          // Avanzar a la siguiente toma
+          alerta.siguienteMs = siguiente;
+          alerta.notificada = false;
+        }
+        guardarYRenderizar();
+      }
+    }
+
+    function eliminarAlerta(id) {
+      alertas = alertas.filter(a => a.id !== id);
+      guardarYRenderizar();
+    }
+
+    function limpiarHistorial() {
+      if (confirm("¿Deseas borrar todo el historial de registros completados?")) {
+        historial = [];
+        guardarYRenderizar();
+      }
+    }
+
+    function guardarYRenderizar() {
+      localStorage.setItem('alertas_clinicas', JSON.stringify(alertas));
+      localStorage.setItem('historial_clinico', JSON.stringify(historial));
+      renderizarAlertas();
+      renderizarHistorial();
+    }
+
+    // Motor de Verificación y Cuenta Regresiva
+    function verificarAlertas() {
+      const ahora = Date.now();
+
+      alertas.forEach(alerta => {
+        if (ahora >= alerta.siguienteMs && !alerta.notificada) {
+          alerta.notificada = true;
+          reproducirSonidoAlarma();
+          enviarNotificacion(alerta);
+          guardarYRenderizar();
+        }
+      });
+
+      renderizarAlertas();
+    }
+
+    function enviarNotificacion(alerta) {
+      const titulo = `🚨 CONTROL PENDIENTE: ${alerta.paciente}`;
+      const opciones = {
+        body: `Procedimiento: ${alerta.procedimiento}`,
+        requireInteraction: true,
+        vibrate: [200, 100, 200, 100, 400]
+      };
+
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification(titulo, opciones);
+      }
+    }
+
+    // Renderizado de Controles Activos
+    function renderizarAlertas() {
+      const contenedor = document.getElementById('lista-alertas');
+      const contador = document.getElementById('contador-activos');
+      const ahora = Date.now();
+
+      contador.innerText = alertas.length;
+
+      if (alertas.length === 0) {
+        contenedor.innerHTML = `
+          <div class="bg-slate-800/50 border border-dashed border-slate-700 rounded-xl p-6 text-center text-slate-500 text-xs">
+            No hay monitoreos activos en este momento.
+          </div>`;
+        return;
+      }
+
+      contenedor.innerHTML = alertas.map(a => {
+        const restanteMs = a.siguienteMs - ahora;
+        const esPendiente = restanteMs <= 0;
+
+        let tiempoTexto = '';
+        if (esPendiente) {
+          tiempoTexto = '🚨 ¡REALIZAR AHORA!';
+        } else {
+          const min = Math.floor(restanteMs / 60000);
+          const seg = Math.floor((restanteMs % 60000) / 1000);
+          tiempoTexto = `Siguiente en: ${min}m ${seg < 10 ? '0' : ''}${seg}s`;
+        }
+
+        return `
+          <div class="bg-slate-800 border ${esPendiente ? 'border-red-500 bg-red-950/20' : 'border-slate-700'} rounded-xl p-3.5 shadow flex flex-col justify-between gap-3 transition-all">
+            <div class="flex items-start justify-between">
+              <div>
+                <span class="inline-block bg-slate-700 text-indigo-300 text-[10px] font-bold px-2 py-0.5 rounded mb-1">
+                  ${a.paciente}
+                </span>
+                <h3 class="text-sm font-semibold text-slate-100">${a.procedimiento}</h3>
+                <p class="text-xs text-slate-400 mt-0.5">Frecuencia: cada ${a.frecuenciaMin} min</p>
+              </div>
+              <button onclick="eliminarAlerta('${a.id}')" class="text-slate-500 hover:text-red-400 p-1 text-xs">
+                ✕
+              </button>
+            </div>
+
+            <div class="flex items-center justify-between border-t border-slate-700/60 pt-2.5">
+              <span class="text-xs font-mono font-bold ${esPendiente ? 'text-red-400 animate-pulse' : 'text-indigo-400'}">
+                ${tiempoTexto}
+              </span>
+              <button onclick="marcarRealizado('${a.id}')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-3 py-1.5 rounded-lg transition-colors shadow">
+                ✓ Listo / Siguiente
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Renderizado del Historial
+    function renderizarHistorial() {
+      const contenedor = document.getElementById('lista-historial');
+
+      if (historial.length === 0) {
+        contenedor.innerHTML = `
+          <div class="bg-slate-800/30 border border-slate-800 rounded-lg p-3 text-center text-slate-500 text-xs">
+            Sin registros completados aún.
+          </div>`;
+        return;
+      }
+
+      contenedor.innerHTML = historial.map(h => `
+        <div class="bg-slate-800/80 border border-slate-700/60 rounded-lg px-3 py-2 text-xs flex items-center justify-between">
+          <div>
+            <span class="text-indigo-300 font-semibold">${h.paciente}</span>
+            <span class="text-slate-400"> - ${h.procedimiento}</span>
+          </div>
+          <div class="text-slate-500 font-mono text-[11px] text-right">
+            <div>${h.fechaHora}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Inicialización
+    actualizarBotonPermiso();
+    renderizarAlertas();
+    renderizarHistorial();
+    setInterval(verificarAlertas, 1000);
+  </script>
+</body>
+</html>
